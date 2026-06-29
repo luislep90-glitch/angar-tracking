@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ANGAR — Tracking Técnicos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0A0C0F;
+    --surface:   #12151A;
+    --border:    #1E2330;
+    --green:     #B8FF57;
+    --green-dim: #7ab832;
+    --red:       #FF4B4B;
+    --amber:     #F59E0B;
+    --text:      #E8EAF0;
+    --muted:     #6B7280;
+    --card-bg:   #161A22;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--green); display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 18px; height: 18px; }
+  .logo-name { font-weight: 700; font-size: 15px; letter-spacing: .5px; }
+  .logo-sub  { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: var(--green);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .4; transform: scale(.7); }
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  aside {
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .stats-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--border); border-bottom: 1px solid var(--border);
+  }
+  .stat-box {
+    background: var(--card-bg); padding: 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-val { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red   { color: var(--red); }
+  .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+
+  .panel-title {
+    padding: 14px 16px 10px;
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tecnico-list { overflow-y: auto; flex: 1; }
+  .tecnico-list::-webkit-scrollbar { width: 4px; }
+  .tecnico-list::-webkit-scrollbar-track { background: transparent; }
+  .tecnico-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tecnico-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .15s;
+  }
+  .tecnico-item:hover { background: #1a1f2a; }
+  .tecnico-item.selected { background: #1a2415; border-left: 2px solid var(--green); }
+
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; flex-shrink: 0;
+    border: 2px solid transparent;
+  }
+  .avatar.online  { border-color: var(--green); background: #1a2e0a; color: var(--green); }
+  .avatar.offline { border-color: var(--border); background: #1a1d24; color: var(--muted); }
+
+  .tec-info { flex: 1; min-width: 0; }
+  .tec-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tec-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  .status-pill {
+    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: .5px;
+  }
+  .status-pill.online  { background: #1a2e0a; color: var(--green); }
+  .status-pill.offline { background: #1a1d24; color: var(--muted); }
+
+  .empty-state {
+    padding: 40px 16px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  /* ── MAP ── */
+  #map { width: 100%; height: 100%; }
+
+  /* ── LOGIN OVERLAY ── */
+  #loginOverlay {
+    position: fixed; inset: 0; background: rgba(10,12,15,.96);
+    display: flex; align-items: center; justify-content: center; z-index: 999;
+  }
+  .login-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 40px; width: 360px;
+  }
+  .login-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .login-card p  { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .field input {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif;
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--green); }
+  .btn-login {
+    width: 100%; padding: 12px;
+    background: var(--green); color: #0A0C0F;
+    font-weight: 700; font-size: 14px; border: none; border-radius: 8px;
+    cursor: pointer; transition: opacity .15s; margin-top: 8px;
+  }
+  .btn-login:hover { opacity: .85; }
+  .btn-login:disabled { opacity: .4; cursor: not-allowed; }
+  #loginError { font-size: 12px; color: var(--red); margin-top: 10px; min-height: 16px; }
+
+  /* ── LOADING ── */
+  #loadingOverlay {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 998;
+  }
+  .spinner {
+    width: 40px; height: 40px; border: 3px solid var(--border);
+    border-top-color: var(--green); border-radius: 50%;
+    animation: spin .7s linear infinite; margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingOverlay p { font-size: 13px; color: var(--muted); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    aside { height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
+    .tecnico-list { display: flex; overflow-x: auto; overflow-y: hidden; }
+    .tecnico-item { flex-direction: column; align-items: center; min-width: 100px; text-align: center; gap: 6px; }
+    .tec-meta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <h2>ANGAR MT</h2>
+    <p>Acceso al panel de seguimiento en tiempo real</p>
+    <div class="field">
+      <label>Correo electrónico</label>
+      <input type="email" id="emailInput" placeholder="admin@angar.com"/>
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="passInput" placeholder="••••••••"/>
+    </div>
+    <button class="btn-login" id="btnLogin">Entrar</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loadingOverlay" style="display:none">
+  <div class="spinner"></div>
+  <p>Cargando técnicos…</p>
+</div>
+
+<!-- APP -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">ANGAR MT</div>
+      <div class="logo-sub">tracking · tiempo real</div>
+    </div>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div>EN VIVO</div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-val green" id="cntOnline">0</div>
+        <div class="stat-lbl">En línea</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val red" id="cntOffline">0</div>
+        <div class="stat-lbl">Fuera de línea</div>
+      </div>
+    </div>
+    <div class="panel-title">Técnicos</div>
+    <div class="tecnico-list" id="tecnicoList">
+      <div class="empty-state">Cargando…</div>
+    </div>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+
+  import { initializeApp }            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyCOaxBKbE0GGxMkoV0yQfmO15uRDjt7Fgg",
+    authDomain:        "miappticket.firebaseapp.com",
+    databaseURL:       "https://miappticket-default-rtdb.firebaseio.com",
+    projectId:         "miappticket",
+    storageBucket:     "miappticket.appspot.com",
+    messagingSenderId: "1000319489190",
+    appId:             "1:1000319489190:android:5e4b81b8cda58638d5d067"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+  const fs   = getFirestore(app);
+
+  // ── estado global ──
+  let mapa = null;
+  let marcadores = {};
+  let tecnicos   = {};   // uid → {nombre, online, lat, lng}
+  let seleccionado = null;
+
+  // ── exponer login ──
+  window.doLogin = async () => {
+    const email = document.getElementById('emailInput').value.trim();
+    const pass  = document.getElementById('passInput').value;
+    const btn   = document.getElementById('btnLogin');
+    const err   = document.getElementById('loginError');
+    err.textContent = '';
+    btn.disabled = true; btn.textContent = 'Entrando…';
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      initTracking();
+    } catch(e) {
+      err.textContent = 'Correo o contraseña incorrectos.';
+      btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  };
+
+  // ── enter key ──
+  document.getElementById('passInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.doLogin();
+  });
+
+  // ── init tracking ──
+  async function initTracking() {
+    // cargar nombres desde Firestore usuarios
+    try {
+      const snap = await getDocs(collection(fs, 'usuarios'));
+      snap.forEach(doc => {
+        const d = doc.data();
+        if (d.rol === 'tecnico') {
+          tecnicos[doc.id] = { nombre: d.nombre || d.nombreUsuario || 'Técnico', online: false, lat: 0, lng: 0 };
+        }
+      });
+    } catch(e) {
+      // si falla Firestore intenta Realtime DB usuarios
+      const usuariosRef = ref(db, 'usuarios');
+      onValue(usuariosRef, snap => {
+        snap.forEach(child => {
+          const d = child.val();
+          if (d && d.rol === 'tecnico') {
+            if (!tecnicos[child.key]) tecnicos[child.key] = { nombre: d.nombreUsuario || 'Técnico', online: false, lat: 0, lng: 0 };
+          }
+        });
+      }, { onlyOnce: true });
+    }
+
+    document.getElementById('loadingOverlay').style.display = 'none';
+    renderLista();
+
+    // escuchar ubicaciones en tiempo real
+    onValue(ref(db, 'ubicaciones'), snap => {
+      snap.forEach(child => {
+        const uid  = child.key;
+        const data = child.val();
+        if (!tecnicos[uid]) tecnicos[uid] = { nombre: uid, online: false, lat: 0, lng: 0 };
+        const t = tecnicos[uid];
+        if (data && data.activo) {
+          t.online = true; t.lat = data.lat || 0; t.lng = data.lng || 0;
+        } else {
+          t.online = false; t.lat = 0; t.lng = 0;
+        }
+      });
+      // marcar offline los que no aparecen en snap
+      Object.keys(tecnicos).forEach(uid => {
+        if (!snap.child(uid).exists()) tecnicos[uid].online = false;
+      });
+      renderLista();
+      actualizarMarcadores();
+    });
+  }
+
+  // ── render lista sidebar ──
+  function renderLista() {
+    const list = document.getElementById('tecnicoList');
+    const arr  = Object.entries(tecnicos);
+    if (arr.length === 0) { list.innerHTML = '<div class="empty-state">Sin técnicos registrados</div>'; return; }
+
+    // ordenar: online primero
+    arr.sort((a,b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0));
+
+    const online  = arr.filter(([,t]) => t.online).length;
+    const offline = arr.length - online;
+    document.getElementById('cntOnline').textContent  = online;
+    document.getElementById('cntOffline').textContent = offline;
+
+    list.innerHTML = arr.map(([uid, t]) => {
+      const initials = t.nombre.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+      const cls = t.online ? 'online' : 'offline';
+      const meta = t.online ? `${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}` : 'Sin señal';
+      const sel  = seleccionado === uid ? 'selected' : '';
+      return `
+        <div class="tecnico-item ${sel}" onclick="seleccionarTecnico('${uid}')">
+          <div class="avatar ${cls}">${initials}</div>
+          <div class="tec-info">
+            <div class="tec-name">${t.nombre}</div>
+            <div class="tec-meta">${meta}</div>
+          </div>
+          <div class="status-pill ${cls}">${t.online ? 'ONLINE' : 'OFF'}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── seleccionar técnico ──
+  window.seleccionarTecnico = (uid) => {
+    seleccionado = uid;
+    renderLista();
+    const t = tecnicos[uid];
+    if (t && t.online && mapa) {
+      mapa.panTo({ lat: t.lat, lng: t.lng });
+      mapa.setZoom(16);
+      if (marcadores[uid]) marcadores[uid].marker.setAnimation(google.maps.Animation.BOUNCE);
+      setTimeout(() => { if (marcadores[uid]) marcadores[uid].marker.setAnimation(null); }, 1400);
+    }
+  };
+
+  // ── marcadores en mapa ──
+  function actualizarMarcadores() {
+    if (!mapa) return;
+    Object.entries(tecnicos).forEach(([uid, t]) => {
+      if (t.online && t.lat && t.lng) {
+        const pos = { lat: t.lat, lng: t.lng };
+        if (marcadores[uid]) {
+          marcadores[uid].marker.setPosition(pos);
+        } else {
+          const marker = new google.maps.Marker({
+            position: pos, map: mapa,
+            title: t.nombre,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#B8FF57', fillOpacity: 1,
+              strokeColor: '#0A0C0F', strokeWeight: 2
+            }
+          });
+          const iw = new google.maps.InfoWindow({
+            content: `<div style="color:#111;font-family:Inter,sans-serif;font-size:13px;font-weight:600">${t.nombre}</div>`
+          });
+          marker.addListener('click', () => { iw.open(mapa, marker); seleccionarTecnico(uid); });
+          marcadores[uid] = { marker, iw };
+        }
+      } else {
+        if (marcadores[uid]) { marcadores[uid].marker.setMap(null); delete marcadores[uid]; }
+      }
+    });
+  }
+
+  // ── Google Maps callback ──
+  window.initMap = () => {
+    mapa = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 24.7994, lng: -107.3895 }, // Culiacán
+      zoom: 12,
+      styles: [
+        { elementType:'geometry', stylers:[{color:'#0A0C0F'}] },
+        { elementType:'labels.text.fill', stylers:[{color:'#6B7280'}] },
+        { elementType:'labels.text.stroke', stylers:[{color:'#0A0C0F'}] },
+        { featureType:'road', elementType:'geometry', stylers:[{color:'#1E2330'}] },
+        { featureType:'road.highway', elementType:'geometry', stylers:[{color:'#252B3B'}] },
+        { featureType:'water', elementType:'geometry', stylers:[{color:'#0d1117'}] },
+        { featureType:'poi', stylers:[{visibility:'off'}] },
+        { featureType:'transit', stylers:[{visibility:'off'}] }
+      ],
+      disableDefaultUI: true,
+      zoomControl: true,
+      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }
+    });
+  };
+</script>
+
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvia6lltPpXL4a_K5UQQji7sPSiu9riaI&callback=initMap">
+</script>
+</body>
+</html>
