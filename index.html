@@ -378,74 +378,62 @@
     }).join('');
   }
 
+  // ── init Leaflet map ──
+  function initLeafletMap() {
+    mapa = L.map('map', { zoomControl: true }).setView([24.7994, -107.3895], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }).addTo(mapa);
+  }
+
   // ── seleccionar técnico ──
   window.seleccionarTecnico = (uid) => {
     seleccionado = uid;
     renderLista();
     const t = tecnicos[uid];
     if (t && t.online && mapa) {
-      mapa.panTo({ lat: t.lat, lng: t.lng });
-      mapa.setZoom(16);
-      if (marcadores[uid]) marcadores[uid].marker.setAnimation(google.maps.Animation.BOUNCE);
-      setTimeout(() => { if (marcadores[uid]) marcadores[uid].marker.setAnimation(null); }, 1400);
+      mapa.setView([t.lat, t.lng], 16);
+      if (marcadores[uid]) {
+        marcadores[uid].openPopup();
+      }
     }
   };
 
   // ── marcadores en mapa ──
   function actualizarMarcadores() {
     if (!mapa) return;
+    const icono = (nombre) => L.divIcon({
+      className: '',
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:#B8FF57;border:2px solid #0A0C0F;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#0A0C0F;font-family:Inter,sans-serif">${nombre.substring(0,2).toUpperCase()}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
     Object.entries(tecnicos).forEach(([uid, t]) => {
       if (t.online && t.lat && t.lng) {
-        const pos = { lat: t.lat, lng: t.lng };
         if (marcadores[uid]) {
-          marcadores[uid].marker.setPosition(pos);
+          marcadores[uid].setLatLng([t.lat, t.lng]);
         } else {
-          const marker = new google.maps.Marker({
-            position: pos, map: mapa,
-            title: t.nombre,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: '#B8FF57', fillOpacity: 1,
-              strokeColor: '#0A0C0F', strokeWeight: 2
-            }
-          });
-          const iw = new google.maps.InfoWindow({
-            content: `<div style="color:#111;font-family:Inter,sans-serif;font-size:13px;font-weight:600">${t.nombre}</div>`
-          });
-          marker.addListener('click', () => { iw.open(mapa, marker); seleccionarTecnico(uid); });
-          marcadores[uid] = { marker, iw };
+          const m = L.marker([t.lat, t.lng], { icon: icono(t.nombre) })
+            .addTo(mapa)
+            .bindPopup(`<b style="font-family:Inter,sans-serif">${t.nombre}</b>`);
+          m.on('click', () => seleccionarTecnico(uid));
+          marcadores[uid] = m;
         }
       } else {
-        if (marcadores[uid]) { marcadores[uid].marker.setMap(null); delete marcadores[uid]; }
+        if (marcadores[uid]) { mapa.removeLayer(marcadores[uid]); delete marcadores[uid]; }
       }
     });
   }
 
-  // ── Google Maps callback ──
-  window.initMap = () => {
-    mapa = new google.maps.Map(document.getElementById('map'), {
-      center: { lat: 24.7994, lng: -107.3895 }, // Culiacán
-      zoom: 12,
-      styles: [
-        { elementType:'geometry', stylers:[{color:'#0A0C0F'}] },
-        { elementType:'labels.text.fill', stylers:[{color:'#6B7280'}] },
-        { elementType:'labels.text.stroke', stylers:[{color:'#0A0C0F'}] },
-        { featureType:'road', elementType:'geometry', stylers:[{color:'#1E2330'}] },
-        { featureType:'road.highway', elementType:'geometry', stylers:[{color:'#252B3B'}] },
-        { featureType:'water', elementType:'geometry', stylers:[{color:'#0d1117'}] },
-        { featureType:'poi', stylers:[{visibility:'off'}] },
-        { featureType:'transit', stylers:[{visibility:'off'}] }
-      ],
-      disableDefaultUI: true,
-      zoomControl: true,
-      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }
-    });
-  };
-</script>
+  // ── arrancar mapa cuando cargue Leaflet ──
+  document.addEventListener('DOMContentLoaded', () => {
+    initLeafletMap();
+  });
 
-<script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvia6lltPpXL4a_K5UQQji7sPSiu9riaI&callback=initMap">
 </script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
