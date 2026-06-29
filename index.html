@@ -290,6 +290,9 @@
     }
   };
 
+  // ── botón login ──
+  document.getElementById('btnLogin').addEventListener('click', window.doLogin);
+
   // ── enter key ──
   document.getElementById('passInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') window.doLogin();
